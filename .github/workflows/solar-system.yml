@@ -1,4 +1,4 @@
-name: Solar System Workflow
+name: matrix
 
 on: 
   workflow_dispatch:
@@ -16,22 +16,23 @@ jobs:
   unit-testing:
     name: Unit Testing
     strategy:
-       matrix:
-        version: [ 18, 19, 20]
-        os: [ ubuntu-latest, macos-latest]
+      matrix:
+        version: [18, 19, 20]
+        os: [ubuntu-latest, macos-latest]
         exclude:
           - version: 18
             os: macos-latest
-    runs-on: $ {{ matrix.os}}
+
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup NodeJS Version - $ {{ matrix.version}}
+      - name: Setup NodeJS Version ${{ matrix.version }}
         uses: actions/setup-node@v3
         with:
-          node-version: $ {{ matrix.version}}
+          node-version: ${{ matrix.version }}
 
       - name: Install Dependencies
         run: npm install
@@ -44,6 +45,3 @@ jobs:
         with:
           name: Mocha-Test-Result
           path: test-results.xml
-
-
-

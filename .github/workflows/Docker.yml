@@ -1,4 +1,4 @@
-name: Docker Build and Test
+name: Docker Push
 
 on: 
   workflow_dispatch:
@@ -127,3 +127,11 @@ jobs:
  
           echo "Testing Image using wget"
           wget -q -O - 127.0.0.1:3000/live | grep live
+    
+      - name: Push images to registries
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+            

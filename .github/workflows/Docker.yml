@@ -136,4 +136,6 @@ jobs:
             ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
             ghcr.io/${{ github.repository_owner | toLower }}/solar-system:${{ github.sha }}
           load: false
+
+
           

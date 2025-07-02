@@ -1,137 +1,174 @@
-name: Unit Testing, Containerization and Deployment for SolarSystem Project
- 
+name: service container
+
 on:
   workflow_dispatch:
- 
+  push:
+    branches:
+      - main
+      - 'feature/*'
+
 env:
   MONGO_URI: 'mongodb+srv://supercluster.d83jj.mongodb.net/superData'
   MONGO_USERNAME: ${{ vars.MONGO_USERNAME }}
   MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
- 
+
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
+  unit-testing:
+    name: Unit Testing
+    services:
+      mongo-db:
+        image: siddharth67/mongo-db:non-prod
+        ports: 
+          - 27017:27017 
+    env:
+      MONGO_URI: 'mongodb://localhost:27017/superData'
+      MONGO_USERNAME: non-prod-user
+      MONGO_PASSWORD: non-prod-password
     strategy:
       matrix:
-        node-version: [18, 20]
-        os: [ubuntu-latest, windows-latest]
+        version: [18, 19]
+        os: [ubuntu-latest]
         exclude:
-          - node-version: 18
-            os: windows-latest
+          - version: 18
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
- 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJS Version ${{ matrix.version }}
+        uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node-version }}
- 
-      - name: Cache NPM dependencies
+          node-version: ${{ matrix.version }}
+
+      - name: Cache NPM Dependencies
         uses: actions/cache@v3
         with:
           path: node_modules
-          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
- 
-      - name: Install dependencies
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Dependencies
         run: npm install
- 
-      - name: Run tests
+
+      - name: Run Unit Tests
         run: npm test
- 
-  code-coverage:
-    runs-on: ubuntu-latest
-    container:
-      image: node:18
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
- 
-      - name: Install dependencies
-        run: npm install
- 
-      - name: Run code coverage
-        continue-on-error: true
-        run: npm run coverage
- 
-      - name: Archive Test Results
+
+      - name: Archive Test Result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Test-Results
-          path: Test-Results.xml
- 
-  docker:
-    name: Containerization and Image Testing
-    needs: [build, code-coverage]
+          name: Mocha-Test-Result-${{ matrix.os }}-node${{ matrix.version }}
+          path: test-results.xml
+
+  code-coverage:
+    name: Code Coverage
+    container:
+      image: node:18
+    services:
+      mongo-db:
+        image: siddharth67/mongo-db:non-prod
+        options:
+          --name mongo
+    env:
+      MONGO_URI: 'mongodb://mongo:27017/superData'
+      MONGO_USERNAME: non-prod-user
+      MONGO_PASSWORD: non-prod-password    
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Cache NPM Dependencies
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Run Coverage
+        continue-on-error: true
+        run: npm run coverage
+
+      - name: Archive Code Coverage Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: Code-Coverage-Result
+          path: coverage
+          retention-days: 5
+
+  docker-build-test-push:
+    name: Docker Build, Test & Push
     permissions:
       packages: write
     runs-on: ubuntu-latest
+    needs: [unit-testing, code-coverage]
+    env:
+      LOWER_REPO_OWNER: ''
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
- 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set lowercase repo owner
+        id: lowercase
+        run: echo "LOWER_REPO_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      - name: DockerHub Login
+        uses: docker/login-action@v2
         with:
-          username: ${{ vars.DH_USERNAME }}
-          password: ${{ secrets.DH_PASSWORD }}
- 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: GHCR Login
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
- 
-      - name: Build Docker image (without pushing)
+
+      - name: Build Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: false
-          tags: ${{ vars.DH_USERNAME }}/solar-system:${{ github.sha }}
- 
-      - name: Test Docker image
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+
+      - name: Test Docker Image
         run: |
-          docker images
-          docker run --name solar-system-app -d \
-            -p 3000:3000 \
+          docker run --name solar-system-app -d -p 3000:3000 \
             -e MONGO_URI=$MONGO_URI \
             -e MONGO_USERNAME=$MONGO_USERNAME \
             -e MONGO_PASSWORD=$MONGO_PASSWORD \
-            ${{ vars.DH_USERNAME }}/solar-system:${{ github.sha }}
- 
-          export IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' solar-system-app)
-          echo "Container IP: $IP"
- 
-          echo "Testing image endpoint using wget"
-          wget -q -O - localhost:3000/live | grep live
- 
-      - name: Push Docker images to registries
-        if: always()
+            ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+          echo "Waiting for container to start..."
+          sleep 15
+          wget -q -O - 127.0.0.1:3000/live | grep live
+          docker stop solar-system-app
+          docker rm solar-system-app
+
+      - name: Container Registry Push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ${{ vars.DH_USERNAME }}/solar-system:${{ github.sha }}
-            ghcr.io/vallabha-devtools/solar-system:${{ github.sha }}
- 
-  deploy:
+            ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+            ghcr.io/${{ env.LOWER_REPO_OWNER }}/solar-system:${{ github.sha }}
+          load: false
+
+  deploy-to-azure:
     name: Deploy to Azure Web App
-    needs: docker
     runs-on: ubuntu-latest
+    needs: docker-build-test-push
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
- 
-      - name: Download Docker image from GHCR (optional)
-        run: echo "Deployment uses the container image pushed previously"
- 
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@v2
         with:
-          app-name: 'qwerty0'                          # Replace with your Azure Web App name
-          slot-name: 'Production'
-          publish-profile: ${{ secrets.WEB_APP }}
-          images: ${{ vars.DH_USERNAME }}/solar-system:${{ github.sha }}
+          app-name: solar-system       # your Azure Web App name
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          images: ${{ vars.DOCKERHUB_USERNAME }}/solar-system:${{ github.sha }}
+          slot-name: production

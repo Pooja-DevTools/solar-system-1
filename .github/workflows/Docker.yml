@@ -1,4 +1,4 @@
-name: web app deployment
+name: web app 
 
 on:
   workflow_dispatch:

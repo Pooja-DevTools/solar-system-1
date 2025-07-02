@@ -1,4 +1,4 @@
-name: service container
+name: Deploy to web app
 
 on:
   workflow_dispatch:

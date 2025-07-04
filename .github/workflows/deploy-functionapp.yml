@@ -1,45 +1,45 @@
-name: Build, Push and Deploy Docker Image to Azure Web App
- 
+name: Deploy to Azure Function App
+
 on:
   push:
     branches:
       - main
- 
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
- 
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
- 
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'  
- 
+          node-version: '18'
+
       - name: Install dependencies
         run: npm install
- 
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
- 
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v3
         with:
           context: .
           push: true
-          tags: ${{ vars.DOCKERHUB_USERNAME  }}/myapp:${{ github.sha }}
- 
+          tags: ${{ vars.DOCKERHUB_USERNAME }}/myapp:${{ github.sha }}
+
       - name: Deploy to Azure Function App
         uses: Azure/functions-action@v1
         with:
-          app-name: solar-system2
+          app-name: solar-system-func-app
           publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
           package: '.'
           remote-build: true
-          sku: flexconsumption
+
           

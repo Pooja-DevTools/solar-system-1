@@ -1,0 +1,14 @@
+name: Build & Push Docker for Web App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  call-build-and-push:
+    uses: ./.github/workflows/reuse-web-app.yml
+    with:
+      dockerhub_user: ${{ vars.DOCKERHUB_USERNAME }}
+    secrets:
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}

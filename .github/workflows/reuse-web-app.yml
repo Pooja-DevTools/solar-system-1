@@ -37,3 +37,4 @@ jobs:
           context: .
           push: true
           tags: ${{ inputs.dockerhub_user }}/solar-system:${{ github.sha }}
+          

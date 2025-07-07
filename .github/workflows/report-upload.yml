@@ -8,8 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MONGO_URI: 'mongodb+srv://supercluster.d83jj.mongodb.net/superData'
-      MONGO_USERNAME: 'your-username-here'
-      MONGO_PASSWORD: 'your-password-here'
+      MONGO_USERNAME: ${{ vars.MONGO_USERNAME }}
+      MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
 
     steps:
       - name: Checkout repo

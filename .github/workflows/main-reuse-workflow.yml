@@ -14,3 +14,5 @@ jobs:
       image_name: 'myapp'
     secrets:
       DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      

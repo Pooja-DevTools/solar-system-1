@@ -1,0 +1,79 @@
+name: cache Dependencies
+
+on: 
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'feature/*'
+
+env:
+  MONGO_URI: 'mongodb+srv://supercluster.d83jj.mongodb.net/superData'
+  MONGO_USERNAME: ${{ vars.MONGO_USERNAME }}
+  MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+
+jobs:
+  unit-testing:
+    name: Unit Testing
+    strategy:
+      matrix:
+        version: [18, 19]
+        os: [ubuntu-latest, macos-latest]
+        exclude:
+          - version: 18
+            os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJS Version ${{ matrix.version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.version }}
+
+      - name: custom-actions NPM Dependencies
+        uses: ./.github/custom-actions/npm-actions
+        with: 
+          path-of-folder: node_modules  
+
+      - name: Unit Testing
+        id: nodejs-unit-testing
+        run: npm test
+
+      - name: Archive Test Result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mocha-Test-Result-${{ matrix.os }}-node${{ matrix.version }}
+          path: test-results.xml
+
+  code-coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup NodeJS Version 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: custom-actions NPM Dependencies
+        uses: ./.github/custom-actions/npm-actions
+        with: 
+          path-of-folder: node_modules  
+
+      - name: Check Code Coverage
+        continue-on-error: true
+        run: npm run coverage
+
+      - name: Archive Code Coverage Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: Code-Coverage-Result
+          path: coverage
+          retention-days: 5

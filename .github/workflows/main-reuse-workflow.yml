@@ -1,0 +1,16 @@
+name: Build and Push on Push to Main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  call-build-push:
+    uses: ./.github/workflows/reusable-build-push.yml
+    with:
+      dockerhub_user: ${{ vars.DOCKERHUB_USERNAME }}
+      node_version: '18'
+      image_name: 'myapp'
+    secrets:
+      DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}

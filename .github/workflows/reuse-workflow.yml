@@ -46,3 +46,4 @@ jobs:
           context: .
           push: true
           tags: ${{ inputs.dockerhub_user }}/${{ inputs.image_name }}:${{ github.sha }}
+          

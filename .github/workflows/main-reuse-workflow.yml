@@ -7,7 +7,7 @@ on:
 
 jobs:
   call-build-push:
-    uses: ./.github/workflows/reusable-build-push.yml
+    uses: ./.github/workflows/reuse-workflow.yml
     with:
       dockerhub_user: ${{ vars.DOCKERHUB_USERNAME }}
       node_version: '18'
